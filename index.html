@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>本草拾遗 · 中医食疗检索</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header class="masthead">
+  <div class="masthead-inner">
+    <div class="brand">
+      <h1>本草拾遗</h1>
+      <span class="seal">药食同源</span>
+      <span class="sub">药材 · 食材 · 古籍 · 节气养生</span>
+    </div>
+    <nav class="tabs">
+      <button class="tab on" data-view="search">本草检索</button>
+      <button class="tab" data-view="recipes">食疗方</button>
+      <button class="tab" data-view="jieqi">二十四节气</button>
+      <button class="tab" data-view="books">经典古籍</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- 检索 -->
+  <section id="view-search" class="view">
+    <div class="searchbar">
+      <input id="q" class="search-input" type="search" placeholder="输入药材或食材名，如：山药、陈皮、失眠、补气" autocomplete="off">
+      <button class="btn" id="btn-search">检索</button>
+    </div>
+    <p class="hint">可按名称、别名、功效、归经、主治搜索，也支持<em>症状词</em>，如「咳嗽」「失眠」「湿气」「痛经」。</p>
+    <div class="chips" id="cat-chips"></div>
+    <p class="meta-line" id="count-line"></p>
+    <div class="grid" id="results"></div>
+  </section>
+
+  <!-- 食疗方 -->
+  <section id="view-recipes" class="view" hidden>
+    <div class="searchbar">
+      <input id="rq" class="search-input" type="search" placeholder="搜索食疗方，如：粥、汤、茶、咳嗽、失眠" autocomplete="off">
+      <button class="btn" id="btn-rsearch">检索</button>
+    </div>
+    <p class="hint">从全站食疗方中检索，共 <em id="recipe-total">0</em> 首。点击方名可查看原药材详情。</p>
+    <div id="recipe-list"></div>
+  </section>
+
+  <!-- 节气 -->
+  <section id="view-jieqi" class="view" hidden>
+    <div id="today-box"></div>
+    <p class="meta-line">点击任一节气可查看该节气的完整养生要点</p>
+    <div class="jq-grid" id="jq-grid"></div>
+  </section>
+
+  <!-- 古籍 -->
+  <section id="view-books" class="view" hidden>
+    <div class="searchbar">
+      <input id="bq" class="search-input" type="search" placeholder="在经典原文中检索，如：养脾、五味、治未病" autocomplete="off">
+    </div>
+    <p class="hint">收录 <em>16</em> 部公有领域经典。分两类：<em>医经本草</em>——黄帝内经素问、灵枢、神农本草经、伤寒论、金匮要略、本草纲目、千金要方食治；<em>食疗专著</em>——食疗本草、饮膳正要、随息居饮食谱、养老奉亲书、山家清供、遵生八笺·饮馔服食笺、老老恒言、食宪鸿秘、调鼎集。标「原文」者照录古籍本文，标「节录」者为依原书整理的内容撮要。</p>
+    <div class="book-layout">
+      <div class="book-list" id="book-list"></div>
+      <div class="book-panel" id="book-panel"></div>
+    </div>
+  </section>
+
+  <div class="disclaimer">
+    本站内容为中医知识与古籍文献的学习资料，<b>不构成医疗诊断或处方</b>。药性、用量、禁忌仅供参考，体质辨识与用药请咨询执业中医师；急性病症、慢性病与孕期哺乳期用药务必就医。
+  </div>
+
+  <div class="foot">
+    本草拾遗 · 本地离线知识库 | 收录药材食材 <span id="foot-n">0</span> 味，食疗方 <span id="foot-r">0</span> 首，古籍 <span id="foot-b">0</span> 部
+  </div>
+</main>
+
+<div class="sheet-mask" id="mask" hidden></div>
+<aside class="sheet" id="sheet" hidden></aside>
+
+<script src="data/jieqi.js"></script>
+<script src="data/herbs-1.js"></script>
+<script src="data/herbs-2.js"></script>
+<script src="data/herbs-3.js"></script>
+<script src="data/herbs-4.js"></script>
+<script src="data/books-1.js"></script>
+<script src="data/books-2.js"></script>
+<script src="data/books-3.js"></script>
+<script src="data/books-4.js"></script>
+<script src="data/books-5.js"></script>
+<script src="data/books-6.js"></script>
+<script src="data/books-7.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>
