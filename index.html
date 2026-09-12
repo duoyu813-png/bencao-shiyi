@@ -20,6 +20,7 @@
       <button class="tab" data-view="recipes">食疗方</button>
       <button class="tab" data-view="jieqi">二十四节气</button>
       <button class="tab" data-view="books">经典古籍</button>
+      <button class="tab" data-view="daily">本草日课</button>
     </nav>
   </div>
 </header>
@@ -67,6 +68,12 @@
     </div>
   </section>
 
+  <!-- 本草日课 -->
+  <section id="view-daily" class="view" hidden>
+    <p class="hint">每日一篇「本草日课」，随节气择当令药材，讲清功效、食疗方与禁忌。点击标题阅读全文。</p>
+    <div id="daily-list"></div>
+  </section>
+
   <div class="disclaimer">
     本站内容为中医知识与古籍文献的学习资料，<b>不构成医疗诊断或处方</b>。药性、用量、禁忌仅供参考，体质辨识与用药请咨询执业中医师；急性病症、慢性病与孕期哺乳期用药务必就医。
   </div>
@@ -91,6 +98,7 @@
 <script src="data/books-5.js"></script>
 <script src="data/books-6.js"></script>
 <script src="data/books-7.js"></script>
+<script src="daily/daily-data.js"></script>
 <script src="assets/app.js"></script>
 </body>
 </html>

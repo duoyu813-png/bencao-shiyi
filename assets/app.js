@@ -5,6 +5,7 @@
   var HERBS = window.HERBS || [];
   var JIEQI = window.JIEQI || [];
   var BOOKS = window.BOOKS || [];
+  var DAILY = window.DAILY || [];
 
   var $ = function (id) { return document.getElementById(id); };
   function esc(s) {
@@ -285,6 +286,42 @@
     });
   }
 
+  /* ---------- 本草日课 ---------- */
+  function renderDaily() {
+    var box = $('daily-list');
+    if (!DAILY.length) {
+      box.innerHTML = '<div class="empty">暂无日课</div>';
+      return;
+    }
+    box.innerHTML = DAILY.map(function (d, i) {
+      return '<article class="daily-card" data-day="' + i + '">' +
+        '<div class="daily-meta">' +
+          '<span class="daily-date">' + esc(d.date) + '</span>' +
+          (d.jieqi ? '<span class="daily-tag">' + esc(d.jieqi) + '</span>' : '') +
+          (d.type ? '<span class="daily-tag plain">' + esc(d.type) + '</span>' : '') +
+        '</div>' +
+        '<h3 class="daily-title">' + esc(d.title) + '</h3>' +
+        '<p class="daily-excerpt">' + esc(d.excerpt) + '</p>' +
+        '</article>';
+    }).join('');
+    Array.prototype.forEach.call(box.querySelectorAll('[data-day]'), function (el) {
+      el.onclick = function () { openDaily(DAILY[+el.getAttribute('data-day')]); };
+    });
+  }
+
+  function openDaily(d) {
+    if (!d) return;
+    var html = '<div class="sheet-head"><div>' +
+      '<h2>' + esc(d.title) + '</h2>' +
+      '<div class="alias">' + esc(d.date) +
+        (d.jieqi ? ' · ' + esc(d.jieqi) : '') +
+        (d.herb ? ' · 主角药材 ' + esc(d.herb) : '') +
+      '</div>' +
+      '</div><button class="close-x" id="close-x">✕</button></div>' +
+      '<div class="sheet-body daily-article">' + d.html + '</div>';
+    showSheet(html);
+  }
+
   /* ---------- 节气 ---------- */
   function key(md) { return md[0] * 100 + md[1]; }
   function todayJieqi() {
@@ -446,12 +483,13 @@
     Array.prototype.forEach.call(document.querySelectorAll('.tab'), function (t) {
       t.classList.toggle('on', t.getAttribute('data-view') === v);
     });
-    ['search', 'recipes', 'jieqi', 'books'].forEach(function (k) {
+    ['search', 'recipes', 'jieqi', 'books', 'daily'].forEach(function (k) {
       $('view-' + k).hidden = (k !== v);
     });
     if (v === 'jieqi') { renderToday(); renderJieqiGrid(); }
     if (v === 'books') { renderBookList(); renderBook(); }
     if (v === 'recipes') renderRecipes($('rq').value);
+    if (v === 'daily') renderDaily();
   }
 
   /* ---------- 分类 chips ---------- */
