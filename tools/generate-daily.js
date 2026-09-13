@@ -6,9 +6,9 @@
  *       → 写 daily/YYYY-MM-DD.md → 跑 md2wechat.js 出公众号稿 → 跑 build-daily.js 更新站点
  *
  * 环境变量（GitHub Actions Secrets）：
- *   LLM_API_KEY       必填，模型密钥（Gemini / DeepSeek 等）
- *   LLM_BASE_URL      选填，默认 Google Gemini 的 OpenAI 兼容端点
- *   LLM_MODEL         选填，默认 gemini-2.5-flash
+ *   LLM_API_KEY       必填，模型密钥（智谱 / Gemini / DeepSeek 等）
+ *   LLM_BASE_URL      选填，默认智谱 https://open.bigmodel.cn/api/paas/v4
+ *   LLM_MODEL         选填，默认 glm-4-flash（免费）
  *   TAVILY_API_KEY    选填（缺省则跳过热点，改纯节气科普）
  *   FORCE=1           选填，当天已有文章时强制覆盖
  *   DATE=YYYY-MM-DD   选填，指定日期（测试用），默认今天
@@ -23,9 +23,9 @@ const { execFileSync } = require('child_process');
 const ROOT = path.resolve(__dirname, '..');
 const DAILY = path.join(ROOT, 'daily');
 
-const LLM_KEY = process.env.LLM_API_KEY || process.env.GEMINI_API_KEY || process.env.DEEPSEEK_API_KEY || '';
-const LLM_BASE = (process.env.LLM_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta/openai').replace(/\/$/, '');
-const LLM_MODEL = process.env.LLM_MODEL || 'gemini-2.5-flash';
+const LLM_KEY = process.env.LLM_API_KEY || process.env.ZHIPU_API_KEY || process.env.GEMINI_API_KEY || process.env.DEEPSEEK_API_KEY || '';
+const LLM_BASE = (process.env.LLM_BASE_URL || 'https://open.bigmodel.cn/api/paas/v4').replace(/\/$/, '');
+const LLM_MODEL = process.env.LLM_MODEL || 'glm-4-flash';
 const TV_KEY = process.env.TAVILY_API_KEY || '';
 const FORCE = process.env.FORCE === '1';
 
@@ -82,11 +82,17 @@ function history() {
 
 /* ---------- 基于日期的可复现随机 ---------- */
 function rng(seedStr) {
-  let s = 0;
-  for (let i = 0; i < seedStr.length; i++) s = (s * 31 + seedStr.charCodeAt(i)) >>> 0;
+  let h = 1779033703 ^ seedStr.length;
+  for (let i = 0; i < seedStr.length; i++) {
+    h = Math.imul(h ^ seedStr.charCodeAt(i), 3432918353);
+    h = (h << 13) | (h >>> 19);
+  }
+  let a = h >>> 0;
   return function () {
-    s = (s * 1103515245 + 12345) >>> 0;
-    return s / 4294967296;
+    a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
 
@@ -95,7 +101,8 @@ function pickHerb(jq, dateStr, recentHerbs) {
   const rand = rng(dateStr);
   const seasonal = HERBS.filter(h => (h.months || []).includes(month));
   const inFoods = h => (jq.foods || []).some(f => h.name === f || (h.alias || []).includes(f));
-  const fresh = list => list.filter(h => !recentHerbs.has(h.name));
+  const fresh = list => list.filter(h =>
+    !recentHerbs.has(h.name) && !(h.alias || []).some(a => recentHerbs.has(a)));
   let pool = fresh(seasonal.filter(inFoods));
   if (!pool.length) pool = fresh(seasonal);
   if (!pool.length) pool = seasonal;
@@ -136,7 +143,7 @@ async function chat(messages) {
   const res = await fetch(LLM_BASE + '/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + LLM_KEY },
-    body: JSON.stringify({ model: LLM_MODEL, messages, temperature: 1.1, max_tokens: 2600, stream: false })
+    body: JSON.stringify({ model: LLM_MODEL, messages, temperature: 1.0, max_tokens: 2600, stream: false })
   });
   if (!res.ok) throw new Error('LLM ' + res.status + ': ' + (await res.text()).slice(0, 300));
   const data = await res.json();
@@ -235,7 +242,13 @@ function normalize(text) {
 
   const jq = jieqiOf(dateStr);
   const hist = history();
-  const recentHerbs = new Set(hist.slice(0, 12).map(h => h.herb).filter(Boolean));
+  const recentHerbs = new Set();
+  hist.slice(0, 12).forEach(h => {
+    String(h.herb || '').split(/[、,，/／]/).forEach(s => {
+      const base = s.replace(/[（(].*$/, '').trim();
+      if (base) recentHerbs.add(base);
+    });
+  });
   const herb = pickHerb(jq, dateStr, recentHerbs);
   const type = pickType(dateStr, hist.map(h => h.type).filter(Boolean));
   if (!herb) { console.error('没有可选药材'); process.exit(1); }

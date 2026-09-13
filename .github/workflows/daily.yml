@@ -24,9 +24,9 @@ jobs:
 
       - name: 生成本草日课
         env:
-          LLM_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          LLM_BASE_URL: https://generativelanguage.googleapis.com/v1beta/openai
-          LLM_MODEL: gemini-2.5-flash
+          LLM_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
+          LLM_BASE_URL: https://open.bigmodel.cn/api/paas/v4
+          LLM_MODEL: glm-4-flash
           TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
         run: node tools/generate-daily.js
 
