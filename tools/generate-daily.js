@@ -6,12 +6,13 @@
  *       → 写 daily/YYYY-MM-DD.md → 跑 md2wechat.js 出公众号稿 → 跑 build-daily.js 更新站点
  *
  * 环境变量（GitHub Actions Secrets）：
- *   DEEPSEEK_API_KEY  必填
+ *   LLM_API_KEY       必填，模型密钥（Gemini / DeepSeek 等）
+ *   LLM_BASE_URL      选填，默认 Google Gemini 的 OpenAI 兼容端点
+ *   LLM_MODEL         选填，默认 gemini-2.5-flash
  *   TAVILY_API_KEY    选填（缺省则跳过热点，改纯节气科普）
- *   DEEPSEEK_BASE_URL 选填，默认 https://api.deepseek.com
- *   DEEPSEEK_MODEL    选填，默认 deepseek-chat
  *   FORCE=1           选填，当天已有文章时强制覆盖
  *   DATE=YYYY-MM-DD   选填，指定日期（测试用），默认今天
+ *   DRY_RUN=1         选填，只选题不调用 AI
  */
 
 const fs = require('fs');
@@ -22,9 +23,9 @@ const { execFileSync } = require('child_process');
 const ROOT = path.resolve(__dirname, '..');
 const DAILY = path.join(ROOT, 'daily');
 
-const DS_KEY = process.env.DEEPSEEK_API_KEY || '';
-const DS_BASE = (process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com').replace(/\/$/, '');
-const DS_MODEL = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
+const LLM_KEY = process.env.LLM_API_KEY || process.env.GEMINI_API_KEY || process.env.DEEPSEEK_API_KEY || '';
+const LLM_BASE = (process.env.LLM_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta/openai').replace(/\/$/, '');
+const LLM_MODEL = process.env.LLM_MODEL || 'gemini-2.5-flash';
 const TV_KEY = process.env.TAVILY_API_KEY || '';
 const FORCE = process.env.FORCE === '1';
 
@@ -130,17 +131,17 @@ async function tavily(query) {
   };
 }
 
-/* ---------- DeepSeek ---------- */
-async function deepseek(messages) {
-  const res = await fetch(DS_BASE + '/chat/completions', {
+/* ---------- 调用 LLM ---------- */
+async function chat(messages) {
+  const res = await fetch(LLM_BASE + '/chat/completions', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + DS_KEY },
-    body: JSON.stringify({ model: DS_MODEL, messages, temperature: 1.1, max_tokens: 2600, stream: false })
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + LLM_KEY },
+    body: JSON.stringify({ model: LLM_MODEL, messages, temperature: 1.1, max_tokens: 2600, stream: false })
   });
-  if (!res.ok) throw new Error('DeepSeek ' + res.status + ': ' + (await res.text()).slice(0, 300));
+  if (!res.ok) throw new Error('LLM ' + res.status + ': ' + (await res.text()).slice(0, 300));
   const data = await res.json();
   const text = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
-  if (!text) throw new Error('DeepSeek 返回为空：' + JSON.stringify(data).slice(0, 300));
+  if (!text) throw new Error('LLM 返回为空：' + JSON.stringify(data).slice(0, 300));
   return text.trim();
 }
 
@@ -223,7 +224,7 @@ function normalize(text) {
 
 /* ---------- 主流程 ---------- */
 (async () => {
-  if (!DS_KEY && process.env.DRY_RUN !== '1') { console.error('缺少 DEEPSEEK_API_KEY'); process.exit(1); }
+  if (!LLM_KEY && process.env.DRY_RUN !== '1') { console.error('缺少 LLM_API_KEY'); process.exit(1); }
 
   const dateStr = todayStr();
   const mdPath = path.join(DAILY, dateStr + '.md');
@@ -255,7 +256,7 @@ function normalize(text) {
     console.error('热点检索失败，降级为纯节气科普：' + e.message);
   }
 
-  const content = await deepseek(buildMessages(dateStr, jq, herb, type, hot));
+  const content = await chat(buildMessages(dateStr, jq, herb, type, hot));
   fs.writeFileSync(mdPath, normalize(content), 'utf8');
   console.log('已写入 ' + path.relative(ROOT, mdPath));
 
