@@ -8,7 +8,7 @@
  * 环境变量（GitHub Actions Secrets）：
  *   LLM_API_KEY       必填，模型密钥（智谱 / Gemini / DeepSeek 等）
  *   LLM_BASE_URL      选填，默认智谱 https://open.bigmodel.cn/api/paas/v4
- *   LLM_MODEL         选填，默认 glm-4-flash（免费）
+ *   LLM_MODEL         选填，默认 glm-4.5-flash（智谱免费模型）
  *   TAVILY_API_KEY    选填（缺省则跳过热点，改纯节气科普）
  *   FORCE=1           选填，当天已有文章时强制覆盖
  *   DATE=YYYY-MM-DD   选填，指定日期（测试用），默认今天
@@ -25,7 +25,7 @@ const DAILY = path.join(ROOT, 'daily');
 
 const LLM_KEY = process.env.LLM_API_KEY || process.env.ZHIPU_API_KEY || process.env.GEMINI_API_KEY || process.env.DEEPSEEK_API_KEY || '';
 const LLM_BASE = (process.env.LLM_BASE_URL || 'https://open.bigmodel.cn/api/paas/v4').replace(/\/$/, '');
-const LLM_MODEL = process.env.LLM_MODEL || 'glm-4-flash';
+const LLM_MODEL = process.env.LLM_MODEL || 'glm-4.5-flash';
 const TV_KEY = process.env.TAVILY_API_KEY || '';
 const FORCE = process.env.FORCE === '1';
 
@@ -188,21 +188,24 @@ function buildMessages(dateStr, jq, herb, type, hot) {
     '',
     `【选题类型】${type}（请围绕这个角度组织文章：${typeDesc(type)}）`,
     '',
-    '【输出格式】严格按下面格式输出，不要加任何额外说明、不要用代码块包裹：',
-    '第一行 ---，随后是 frontmatter：',
-    '标题: <一句话标题，可含疑问或反差，不含书名号>',
-    `日期: ${dateStr}`,
-    `节气: ${jq.name}（${jq.start[0]}/${jq.start[1]}–${jq.end[0]}/${jq.end[1]}）`,
-    `选题类型: ${type}`,
-    `主角药材: ${herb.name}`,
-    '再一行 ---，接着是正文 Markdown。',
+    '【输出格式】只输出文章正文本身，不要 frontmatter、不要代码块、不要任何说明文字。',
+    '第一行写成「# 标题」，标题一句话，可含疑问或反差，不要带书名号，然后空一行再写正文。',
     '',
-    '正文要求：',
-    '- 以 ## 小标题分 3–4 节；食疗方用「→ 」开头单列，2 道，用量明确；',
-    '- 必有一段「## 禁忌提醒」，写清哪些人不能吃/慎吃；',
-    '- 结尾加一段以「> 」开头的免责声明；',
-    '- 最后加一行斜体：*素材参考：…*，只列上面给定的资料与搜索结果来源；',
-    '- 标题下正文第一段直接从 #{日期} 的节气/热点切入，不要重复标题。'
+    '正文严格照下面结构写（小标题文字可自拟，但层级和符号必须一致）：',
+    '# 标题',
+    '开篇 1–2 段，从 ' + dateStr + ' 的节气或热点切入，约 150 字。',
+    '## 它到底是什么',
+    '讲清药性、功效、可引用的古籍，约 200 字。',
+    '## 两道方子',
+    '→ 方名：组成（写清用量）；制法；适用人群',
+    '→ 方名：组成（写清用量）；制法；适用人群',
+    '## 禁忌提醒',
+    '写清哪些人不能吃、慎吃，约 150 字。',
+    '> 本内容仅供学习参考，不替代医生诊断……（免责声明必须用 > 顶格开头，不要写成 ## 标题）',
+    '*素材参考：……*',
+    '',
+    '硬性要求：食疗方必须以「→ 」顶格单独成行，2 道，用量明确；不要把方名写成 ### 标题。',
+    '全文约 1000 字；资料不足时宁可少写，也不要编造古籍、新闻、专家或数据。'
   ].filter(Boolean).join('\n');
 
   return [{ role: 'system', content: system }, { role: 'user', content: user }];
@@ -218,15 +221,29 @@ function typeDesc(t) {
 }
 
 /* ---------- 解析模型输出 ---------- */
-function normalize(text) {
+function normalize(text, meta) {
   let t = text.trim();
   const fence = t.match(/^```[a-zA-Z]*\r?\n([\s\S]*?)\r?\n```$/);
   if (fence) t = fence[1].trim();
-  const m = t.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
-  if (!m) throw new Error('模型输出缺少 frontmatter，已中止。开头：\n' + t.slice(0, 200));
-  const body = m[2].trim();
-  if (body.replace(/\s/g, '').length < 300) throw new Error('正文过短，疑似生成失败');
-  return '---\n' + m[1].trim() + '\n---\n\n' + body + '\n';
+
+  const hm = t.match(/^#\s+(.+)$/m);
+  let title;
+  if (hm) {
+    title = hm[1].trim();
+    t = t.slice(t.indexOf(hm[0])).trim();
+  } else {
+    title = meta.fallbackTitle;
+    t = '# ' + title + '\n\n' + t;
+  }
+  if (t.replace(/\s/g, '').length < 300) throw new Error('正文过短，疑似生成失败');
+
+  return '---\n' +
+    '标题: ' + title + '\n' +
+    '日期: ' + meta.date + '\n' +
+    '节气: ' + meta.jieqi + '\n' +
+    '选题类型: ' + meta.type + '\n' +
+    '主角药材: ' + meta.herb + '\n' +
+    '---\n\n' + t + '\n';
 }
 
 /* ---------- 主流程 ---------- */
@@ -270,7 +287,13 @@ function normalize(text) {
   }
 
   const content = await chat(buildMessages(dateStr, jq, herb, type, hot));
-  fs.writeFileSync(mdPath, normalize(content), 'utf8');
+  fs.writeFileSync(mdPath, normalize(content, {
+    date: dateStr,
+    jieqi: `${jq.name}（${jq.start[0]}/${jq.start[1]}–${jq.end[0]}/${jq.end[1]}）`,
+    type: type,
+    herb: herb.name,
+    fallbackTitle: `${jq.name}·${herb.name}：今日本草日课`
+  }), 'utf8');
   console.log('已写入 ' + path.relative(ROOT, mdPath));
 
   execFileSync(process.execPath, [path.join(__dirname, 'md2wechat.js'), dateStr], { stdio: 'inherit' });

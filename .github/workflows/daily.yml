@@ -26,7 +26,7 @@ jobs:
         env:
           LLM_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
           LLM_BASE_URL: https://open.bigmodel.cn/api/paas/v4
-          LLM_MODEL: glm-4-flash
+          LLM_MODEL: glm-4.5-flash
           TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
         run: node tools/generate-daily.js
 
