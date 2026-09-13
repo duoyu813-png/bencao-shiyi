@@ -9,7 +9,7 @@
  *   LLM_API_KEY       必填，模型密钥（智谱 / Gemini / DeepSeek 等）
  *   LLM_BASE_URL      选填，默认智谱 https://open.bigmodel.cn/api/paas/v4
  *   LLM_MODEL         选填，默认 glm-4.5-flash（智谱免费模型）
- *   TAVILY_API_KEY    选填（缺省则跳过热点，改纯节气科普）
+ *   TAVILY_API_KEY    选填；不填则自动用智谱自带联网搜索，都没有就跳过热点
  *   FORCE=1           选填，当天已有文章时强制覆盖
  *   DATE=YYYY-MM-DD   选填，指定日期（测试用），默认今天
  *   DRY_RUN=1         选填，只选题不调用 AI
@@ -138,6 +138,33 @@ async function tavily(query) {
   };
 }
 
+/* ---------- 智谱自带联网搜索 ---------- */
+async function zhipuSearch(query) {
+  const res = await fetch(LLM_BASE + '/web_search', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + LLM_KEY },
+    body: JSON.stringify({ search_engine: 'search_std', search_query: query, count: 5 })
+  });
+  if (!res.ok) throw new Error('智谱搜索 ' + res.status + ': ' + (await res.text()).slice(0, 200));
+  const data = await res.json();
+  return {
+    answer: '',
+    items: (data.search_result || []).map(r => ({
+      title: r.title || '',
+      url: r.link || '',
+      content: (r.content || '').slice(0, 500),
+      date: r.publish_date || ''
+    }))
+  };
+}
+
+/* ---------- 热点检索：优先 Tavily，否则用智谱自带搜索 ---------- */
+async function searchHot(query) {
+  if (TV_KEY) return tavily(query);
+  if (LLM_KEY && /bigmodel\.cn/.test(LLM_BASE)) return zhipuSearch(query);
+  return null;
+}
+
 /* ---------- 调用 LLM ---------- */
 async function chat(messages) {
   const res = await fetch(LLM_BASE + '/chat/completions', {
@@ -166,7 +193,7 @@ function buildMessages(dateStr, jq, herb, type, hot) {
 
   const hotText = hot
     ? ('【今日热点搜索结果】\n' + (hot.answer ? '摘要：' + hot.answer + '\n' : '') +
-       hot.items.map(i => `- ${i.title}（${i.url}）\n  ${i.content}`).join('\n'))
+       hot.items.map(i => `- ${i.title}（${i.date ? i.date + ' ' : ''}${i.url}）\n  ${i.content}`).join('\n'))
     : '【今日热点】无（未配置搜索），请纯以节气与药材知识切入。';
 
   const user = [
@@ -279,9 +306,9 @@ function normalize(text, meta) {
 
   let hot = null;
   try {
-    hot = await tavily(`${jq.name} 养生 时令 ${herb.name} 热点`);
+    hot = await searchHot(`${jq.name} 养生 时令 ${herb.name} 热点`);
     if (hot) console.log('热点结果 ' + hot.items.length + ' 条' + (hot.answer ? '（含摘要）' : ''));
-    else console.log('未配置 TAVILY_API_KEY，跳过热点');
+    else console.log('无可用搜索源（未配 Tavily 且非智谱端点），跳过热点');
   } catch (e) {
     console.error('热点检索失败，降级为纯节气科普：' + e.message);
   }
